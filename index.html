@@ -1,219 +1,334 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>程式碼預覽</title>
+    <title>原始碼守護者 Pro</title>
+    <!-- 引入 Tailwind CSS 進行排版與樣式設定 -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4A90E2',
+                        secondary: '#9B6EF3',
+                        success: '#5AC8A5',
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        #error-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; background: #fef2f2; color: #991b1b; padding: 20px; z-index: 9999; border-bottom: 4px solid #ef4444; font-family: monospace; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        /* 基礎全域樣式與過渡動畫 */
+        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; transition: background-color 0.3s, color 0.3s; }
+        textarea { outline: none; transition: border-color 0.2s, background-color 0.3s, color 0.3s; }
+        
+        /* 亮/暗色主題基礎色 */
+        .bg-theme-light { background-color: #f8fafc; color: #1e293b; }
+        .bg-theme-dark { background-color: #0f172a; color: #f1f5f9; }
+        .card-light { background-color: #ffffff; border-color: #e2e8f0; }
+        .card-dark { background-color: #1e293b; border-color: #334155; }
+        .input-light { background-color: #f8fafc; border-color: #cbd5e1; color: #334155; }
+        .input-dark { background-color: #0f172a; border-color: #475569; color: #cbd5e1; }
+        
+        .empty-warning {
+            position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none;
+        }
+        .hidden { display: none !important; }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen">
-    <div id="error-overlay">
-        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; font-weight:bold; font-size:1.125rem;">⚠️ 程式碼執行發生錯誤：</div>
-        <div id="error-msg" style="white-space:pre-wrap; font-size:0.875rem; word-break:break-all;"></div>
-        <div style="margin-top:12px; font-size:0.75rem; opacity:0.8;">提示：請檢查貼上的程式碼是否缺少括號，或使用了未定義的變數。</div>
-    </div>
-    <script>
-        window.addEventListener('error', function(e) {
-            document.getElementById('error-overlay').style.display = 'block';
-            document.getElementById('error-msg').innerText = e.message + '\n(行數: ' + e.lineno + ', 欄位: ' + e.colno + ')';
-        });
-    </script>
-    <div id="root"></div>
-    <script type="text/babel" data-type="module">
-const { useState, useMemo } = React;
+<body class="bg-theme-dark min-h-screen p-4 md:p-8 flex flex-col items-center">
 
-// --- i18n 多國語言設定 ---
-const translations = {
-  zh: {
-    appTitle: '原始碼守護者',
-    appSubtitle: '100% 語法安全 HTML/JS 即時混淆工具',
-    inputLabel: '1. 貼上您的原始碼',
-    outputLabel: '2. 取得受保護的程式碼',
-    inputPlaceholder: '在此輸入 HTML 或 JavaScript 程式碼...\n(自動保護所有的 < 符號與 // 註解，絕不破壞您的邏輯)',
-    outputPlaceholder: '處理後的加密程式碼將顯示於此...',
-    modeHtml: 'HTML 模式',
-    modeJs: 'JS 模式',
-    clearBtn: '清除內容',
-    copyBtn: '複製代碼',
-    copiedMsg: '已複製！',
-    themeToggle: '切換主題',
-    langToggle: 'EN',
-    emptyWarning: '請先輸入程式碼',
-  },
-  en: {
-    appTitle: 'Source Code Protector Pro',
-    appSubtitle: '100% Syntax Safe HTML/JS Obfuscator',
-    inputLabel: '1. Paste Source Code',
-    outputLabel: '2. Get Protected Code',
-    inputPlaceholder: 'Type or paste HTML / JavaScript code here...',
-    outputPlaceholder: 'Protected code will appear here...',
-    modeHtml: 'HTML Mode',
-    modeJs: 'JS Mode',
-    clearBtn: 'Clear',
-    copyBtn: 'Copy Code',
-    copiedMsg: 'Copied!',
-    themeToggle: 'Toggle Theme',
-    langToggle: '中文',
-    emptyWarning: 'Please enter code first',
-  }
-};
-
-// --- SVG 圖示組件 ---
-const Icons = {
-  Shield: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
-  Sun: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>,
-  Moon: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>,
-  Globe: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>,
-  Copy: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>,
-  Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
-  Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
-  Code: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-};
-
-function App() {
-  const [sourceCode, setSourceCode] = useState('');
-  const [mode, setMode] = useState('js'); // 預設改為 JS 模式，方便您直接貼上
-  const [theme, setTheme] = useState('dark'); 
-  const [lang, setLang] = useState('zh'); 
-  const [copied, setCopied] = useState(false);
-
-  const t = translations[lang];
-
-  // --- 核心邏輯：絕對安全的編碼 ---
-  const processedCode = useMemo(() => {
-    if (!sourceCode.trim()) return '';
-    try {
-      let processCode = sourceCode;
-
-      if (mode === 'html') {
-        // HTML 模式：移除強硬的換行刪除，保證內嵌的 JS // 註解不會壞掉
-        processCode = processCode.trim();
-        const encoded = btoa(unescape(encodeURIComponent(processCode)));
-        return `<script>document.write(decodeURIComponent(escape(atob("${encoded}"))));<\/script>`;
-      } else {
-        // JS 模式：移除可能誤貼的 <script> 標籤，然後原汁原味包裝
-        processCode = processCode.replace(/<\/?script[^>]*>/gi, '').trim();
-        const encoded = btoa(unescape(encodeURIComponent(processCode)));
-        
-        // 終極修復：使用 .textContent 而非 .innerHTML！
-        // 保證 `< 20` 這種運算子不會被瀏覽器當成 HTML 標籤截斷！
-        return `(function(){var s=document.createElement('script');s.textContent=decodeURIComponent(escape(atob("${encoded}")));document.head.appendChild(s);})();`;
-      }
-    } catch (error) {
-      return `// 處理錯誤：請檢查原始碼格式是否正確\n// Error: ${error.message}`;
-    }
-  }, [sourceCode, mode]);
-
-  // --- 互動事件處理 ---
-  const handleCopy = async () => {
-    if (!processedCode) return;
-    try {
-      await navigator.clipboard.writeText(processedCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000); 
-    } catch (err) {
-      const textArea = document.createElement("textarea");
-      textArea.value = processedCode;
-      document.body.appendChild(textArea);
-      textArea.select();
-      try {
-        document.execCommand('copy');
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch (e) {
-        console.error("複製失敗", e);
-      }
-      document.body.removeChild(textArea);
-    }
-  };
-
-  const handleClear = () => {
-    setSourceCode('');
-    setCopied(false);
-  };
-
-  const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  const toggleLang = () => setLang(prev => prev === 'zh' ? 'en' : 'zh');
-
-  const themeClasses = theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-slate-50 text-gray-800';
-  const cardClasses = theme === 'dark' ? 'bg-gray-800 border-gray-700 shadow-xl' : 'bg-white border-gray-200 shadow-lg';
-  const textAreaClasses = theme === 'dark' ? 'bg-gray-900 border-gray-600 text-gray-100 focus:border-[#4A90E2]' : 'bg-slate-50 border-gray-300 text-gray-800 focus:border-[#4A90E2]';
-
-  return (
-    <div className={`min-h-screen font-sans transition-colors duration-300 ${themeClasses} p-4 md:p-8 flex flex-col items-center`}>
-      <header className="w-full max-w-6xl flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#4A90E2] bg-opacity-10 rounded-lg text-[#4A90E2]">
-            <Icons.Shield />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">{t.appTitle}</h1>
-            <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-              {t.appSubtitle}
-            </p>
-          </div>
+    <!-- 頂部導覽列 -->
+    <header class="w-full max-w-6xl flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-primary/10 rounded-lg text-primary">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight" id="ui-title">原始碼守護者 Pro</h1>
+                <p class="text-sm opacity-60" id="ui-subtitle">100% 語法安全 HTML/JS 即時混淆工具</p>
+            </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className={`flex p-1 rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-200'}`}>
-            <button onClick={() => setMode('html')} className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${mode === 'html' ? 'bg-[#4A90E2] text-white shadow' : 'text-gray-500 hover:text-gray-400'}`}>{t.modeHtml}</button>
-            <button onClick={() => setMode('js')} className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${mode === 'js' ? 'bg-[#9B6EF3] text-white shadow' : 'text-gray-500 hover:text-gray-400'}`}>{t.modeJs}</button>
-          </div>
-          <div className="h-6 w-px bg-gray-400 opacity-30 mx-2"></div>
-          <button onClick={toggleLang} className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-200'}`} title={t.langToggle}><Icons.Globe /></button>
-          <button onClick={toggleTheme} className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'hover:bg-gray-800 text-yellow-400' : 'hover:bg-gray-200 text-gray-600'}`} title={t.themeToggle}>{theme === 'dark' ? <Icons.Sun /> : <Icons.Moon />}</button>
-        </div>
-      </header>
+        <div class="flex items-center gap-3">
+            <!-- 模式切換按鈕群 -->
+            <div class="flex p-1 rounded-lg bg-gray-200 dark:bg-gray-800 transition-colors" id="modeContainer">
+                <button id="btnHtmlMode" class="px-4 py-1.5 text-sm font-medium rounded-md transition-all bg-primary text-white shadow" onclick="setMode('html')">HTML 模式</button>
+                <button id="btnJsMode" class="px-4 py-1.5 text-sm font-medium rounded-md transition-all text-gray-500 hover:text-gray-400 dark:text-gray-400 dark:hover:text-gray-300" onclick="setMode('js')">JS 模式</button>
+            </div>
 
-      <main className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-2 gap-6 flex-grow">
-        <div className={`flex flex-col border rounded-xl overflow-hidden ${cardClasses}`}>
-          <div className={`px-4 py-3 border-b flex items-center justify-between ${theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'}`}>
-            <div className="flex items-center gap-2 font-medium"><Icons.Code /> {t.inputLabel}</div>
-            <button onClick={handleClear} disabled={!sourceCode} className={`text-sm flex items-center gap-1 px-2 py-1 rounded transition-colors ${!sourceCode ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500 hover:bg-opacity-10 text-red-400'}`}><Icons.Trash /> {t.clearBtn}</button>
-          </div>
-          <div className="flex-grow p-4 relative">
-            <textarea className={`w-full h-full min-h-[400px] p-4 rounded-lg outline-none resize-none font-mono text-sm border transition-colors ${textAreaClasses}`} placeholder={t.inputPlaceholder} value={sourceCode} onChange={(e) => setSourceCode(e.target.value)} spellCheck="false" />
-          </div>
-        </div>
+            <div class="h-6 w-px bg-gray-400 opacity-30 mx-2"></div>
 
-        <div className={`flex flex-col border rounded-xl overflow-hidden ${cardClasses}`}>
-          <div className={`px-4 py-3 border-b flex items-center justify-between ${theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'}`}>
-            <div className="flex items-center gap-2 font-medium text-[#5AC8A5]"><Icons.Shield /> {t.outputLabel}</div>
-            <button onClick={handleCopy} disabled={!processedCode} className={`text-sm flex items-center gap-1 px-3 py-1 rounded-md font-medium transition-all ${!processedCode ? 'opacity-50 cursor-not-allowed bg-gray-500 bg-opacity-10 text-gray-400' : copied ? 'bg-[#5AC8A5] text-white shadow-md' : 'bg-[#4A90E2] text-white shadow hover:bg-blue-600'}`}>
-              {copied ? <><Icons.Check /> {t.copiedMsg}</> : <><Icons.Copy /> {t.copyBtn}</>}
+            <!-- 語系與主題切換 -->
+            <button onclick="toggleLang()" class="p-2 rounded-full transition-colors hover:bg-gray-200 dark:hover:bg-gray-800" title="切換語言">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
             </button>
-          </div>
-          <div className="flex-grow p-4 relative">
-             <textarea readOnly className={`w-full h-full min-h-[400px] p-4 rounded-lg outline-none resize-none font-mono text-sm border transition-colors opacity-90 ${textAreaClasses}`} placeholder={t.outputPlaceholder} value={processedCode} />
-            {!processedCode && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <span className={`px-4 py-2 rounded-full border border-dashed ${theme === 'dark' ? 'border-gray-600 text-gray-500' : 'border-gray-300 text-gray-400'}`}>{t.emptyWarning}</span>
-              </div>
-            )}
-          </div>
+            <button onclick="toggleTheme()" class="p-2 rounded-full transition-colors hover:bg-gray-200 dark:hover:bg-gray-800 text-yellow-400 dark:text-yellow-400 text-gray-600" id="btnThemeToggle" title="切換主題">
+                <svg id="icon-sun" class="hidden" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                <svg id="icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </button>
         </div>
-      </main>
+    </header>
 
-      <footer className="w-full max-w-6xl mt-8 text-center text-sm opacity-50 hover:opacity-80 transition-opacity">
+    <!-- 編輯與輸出區 -->
+    <main class="w-full max-w-6xl grid grid-cols-1 md:grid-cols-2 gap-6 flex-grow">
+        
+        <!-- 左側：輸入區 -->
+        <div class="flex flex-col border rounded-xl overflow-hidden card-dark border transition-colors shadow-lg" id="cardInput">
+            <div class="px-4 py-3 border-b flex items-center justify-between bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-colors" id="headerInput">
+                <div class="flex items-center gap-2 font-medium">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> 
+                    <span id="ui-label-input">1. 貼上您的原始碼</span>
+                </div>
+                <button id="btnClear" onclick="clearInput()" class="text-sm flex items-center gap-1 px-2 py-1 rounded transition-colors opacity-50 cursor-not-allowed">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                    <span id="ui-btn-clear">清除內容</span>
+                </button>
+            </div>
+            <div class="flex-grow p-4 relative">
+                <textarea id="sourceTextarea" class="w-full h-full min-h-[400px] p-4 rounded-lg resize-none font-mono text-sm border focus:border-primary input-dark" placeholder="在此輸入 HTML 或 JavaScript 程式碼...&#10;(自動保護所有的 < 符號與 // 註解，絕不破壞您的邏輯)" spellcheck="false" oninput="processCode()"></textarea>
+            </div>
+        </div>
+
+        <!-- 右側：輸出區 -->
+        <div class="flex flex-col border rounded-xl overflow-hidden card-dark border transition-colors shadow-lg" id="cardOutput">
+            <div class="px-4 py-3 border-b flex items-center justify-between bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-colors" id="headerOutput">
+                <div class="flex items-center gap-2 font-medium text-success">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> 
+                    <span id="ui-label-output">2. 取得受保護的程式碼</span>
+                </div>
+                <button id="btnCopy" onclick="copyCode()" disabled class="text-sm flex items-center gap-1 px-3 py-1 rounded-md font-medium transition-all opacity-50 cursor-not-allowed bg-gray-500/10 text-gray-400">
+                    <svg id="icon-copy" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    <svg id="icon-check" class="hidden" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span id="ui-btn-copy">複製代碼</span>
+                </button>
+            </div>
+            <div class="flex-grow p-4 relative">
+                 <textarea id="outputTextarea" readonly class="w-full h-full min-h-[400px] p-4 rounded-lg resize-none font-mono text-sm border opacity-90 input-dark"></textarea>
+                 <div id="emptyWarning" class="empty-warning">
+                    <span class="px-4 py-2 rounded-full border border-dashed border-gray-600 text-gray-500" id="ui-empty-warn">請先輸入程式碼</span>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 頁腳版權 -->
+    <footer class="w-full max-w-6xl mt-8 text-center text-sm opacity-50 hover:opacity-80 transition-opacity">
         <p>
-          v0.2.0 | &copy;2026 <a href="https://huobest.com/" target="_blank" rel="noopener noreferrer" className="hover:text-[#4A90E2] hover:underline transition-colors">霍家私塾</a>
+          v0.2.0 | &copy;2026 <a href="https://huobest.com/" target="_blank" rel="noopener noreferrer" class="hover:text-primary hover:underline transition-colors">霍家私塾</a>
         </p>
-      </footer>
-    </div>
-  );
-}
+    </footer>
 
-// --- 自動掛載設定 ---
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
+    <script>
+        const state = {
+            mode: 'html',
+            theme: 'dark',
+            lang: 'zh',
+            processed: ''
+        };
 
+        const i18n = {
+            zh: {
+                title: '原始碼守護者 Pro',
+                subtitle: '100% 語法安全 HTML/JS 即時混淆工具',
+                labelIn: '1. 貼上您的原始碼',
+                labelOut: '2. 取得受保護的程式碼',
+                placeholderIn: '在此輸入 HTML 或 JavaScript 程式碼...\n(自動保護所有的 < 符號與 // 註解，絕不破壞您的邏輯)',
+                btnClear: '清除內容',
+                btnCopy: '複製代碼',
+                msgCopied: '已複製！',
+                emptyWarn: '請先輸入程式碼'
+            },
+            en: {
+                title: 'Source Code Protector Pro',
+                subtitle: '100% Syntax Safe HTML/JS Obfuscator',
+                labelIn: '1. Paste Source Code',
+                labelOut: '2. Get Protected Code',
+                placeholderIn: 'Type or paste HTML / JavaScript code here...',
+                btnClear: 'Clear',
+                btnCopy: 'Copy Code',
+                msgCopied: 'Copied!',
+                emptyWarn: 'Please enter code first'
+            }
+        };
+
+        // DOM 元素快取
+        const els = {
+            src: document.getElementById('sourceTextarea'),
+            out: document.getElementById('outputTextarea'),
+            warn: document.getElementById('emptyWarning'),
+            btnClear: document.getElementById('btnClear'),
+            btnCopy: document.getElementById('btnCopy'),
+            btnHtml: document.getElementById('btnHtmlMode'),
+            btnJs: document.getElementById('btnJsMode'),
+            iconCopy: document.getElementById('icon-copy'),
+            iconCheck: document.getElementById('icon-check'),
+            uiCopyText: document.getElementById('ui-btn-copy')
+        };
+
+        function processCode() {
+            const raw = els.src.value;
+            
+            // 按鈕狀態控制
+            if(raw.trim() === '') {
+                els.btnClear.className = 'text-sm flex items-center gap-1 px-2 py-1 rounded transition-colors opacity-50 cursor-not-allowed';
+                els.btnCopy.className = 'text-sm flex items-center gap-1 px-3 py-1 rounded-md font-medium transition-all opacity-50 cursor-not-allowed bg-gray-500/10 text-gray-400';
+                els.btnCopy.disabled = true;
+                els.out.value = '';
+                state.processed = '';
+                els.warn.classList.remove('hidden');
+                return;
+            }
+
+            els.btnClear.className = 'text-sm flex items-center gap-1 px-2 py-1 rounded transition-colors hover:bg-red-500/10 text-red-400';
+            els.btnCopy.className = 'text-sm flex items-center gap-1 px-3 py-1 rounded-md font-medium transition-all bg-primary text-white shadow hover:bg-blue-600 cursor-pointer';
+            els.btnCopy.disabled = false;
+            els.warn.classList.add('hidden');
+
+            try {
+                let code = raw;
+                let result = '';
+
+                if (state.mode === 'html') {
+                    // HTML 模式：保留註解，僅包裝
+                    code = code.trim();
+                    const encoded = btoa(unescape(encodeURIComponent(code)));
+                    result = `<script>document.write(decodeURIComponent(escape(atob("${encoded}"))));<\/script>`;
+                } else {
+                    // JS 模式防呆：移除 <script> 標籤後包裝
+                    code = code.replace(/<\/?script[^>]*>/gi, '').trim();
+                    const encoded = btoa(unescape(encodeURIComponent(code)));
+                    // 終極安全注入法：textContent
+                    result = `(function(){var s=document.createElement('script');s.textContent=decodeURIComponent(escape(atob("${encoded}")));document.head.appendChild(s);})();`;
+                }
+
+                state.processed = result;
+                els.out.value = result;
+
+            } catch (err) {
+                els.out.value = `// 處理錯誤：請檢查原始碼格式是否正確\n// Error: ${err.message}`;
+                state.processed = '';
+            }
+        }
+
+        function setMode(mode) {
+            state.mode = mode;
+            if(mode === 'html') {
+                els.btnHtml.className = 'px-4 py-1.5 text-sm font-medium rounded-md transition-all bg-primary text-white shadow';
+                els.btnJs.className = 'px-4 py-1.5 text-sm font-medium rounded-md transition-all text-gray-500 hover:text-gray-400 dark:text-gray-400 dark:hover:text-gray-300';
+            } else {
+                els.btnJs.className = 'px-4 py-1.5 text-sm font-medium rounded-md transition-all bg-secondary text-white shadow';
+                els.btnHtml.className = 'px-4 py-1.5 text-sm font-medium rounded-md transition-all text-gray-500 hover:text-gray-400 dark:text-gray-400 dark:hover:text-gray-300';
+            }
+            processCode();
+        }
+
+        function clearInput() {
+            if(!els.src.value) return;
+            els.src.value = '';
+            processCode();
+        }
+
+        async function copyCode() {
+            if(!state.processed) return;
+            
+            const doCopyEffect = () => {
+                els.iconCopy.classList.add('hidden');
+                els.iconCheck.classList.remove('hidden');
+                els.uiCopyText.innerText = i18n[state.lang].msgCopied;
+                els.btnCopy.classList.remove('bg-primary', 'hover:bg-blue-600');
+                els.btnCopy.classList.add('bg-success');
+
+                setTimeout(() => {
+                    els.iconCheck.classList.add('hidden');
+                    els.iconCopy.classList.remove('hidden');
+                    els.uiCopyText.innerText = i18n[state.lang].btnCopy;
+                    els.btnCopy.classList.remove('bg-success');
+                    els.btnCopy.classList.add('bg-primary', 'hover:bg-blue-600');
+                }, 2000);
+            };
+
+            try {
+                await navigator.clipboard.writeText(state.processed);
+                doCopyEffect();
+            } catch (err) {
+                // 備用方法
+                const ta = document.createElement("textarea");
+                ta.value = state.processed;
+                document.body.appendChild(ta);
+                ta.select();
+                try {
+                    document.execCommand('copy');
+                    doCopyEffect();
+                } catch (e) { console.error(e); }
+                document.body.removeChild(ta);
+            }
+        }
+
+        function applyTheme() {
+            const body = document.body;
+            const sun = document.getElementById('icon-sun');
+            const moon = document.getElementById('icon-moon');
+
+            if(state.theme === 'dark') {
+                document.documentElement.classList.add('dark');
+                body.className = 'bg-theme-dark min-h-screen p-4 md:p-8 flex flex-col items-center';
+                els.src.className = 'w-full h-full min-h-[400px] p-4 rounded-lg resize-none font-mono text-sm border focus:border-primary input-dark';
+                els.out.className = 'w-full h-full min-h-[400px] p-4 rounded-lg resize-none font-mono text-sm border opacity-90 input-dark';
+                document.getElementById('cardInput').className = 'flex flex-col border rounded-xl overflow-hidden card-dark border transition-colors shadow-lg';
+                document.getElementById('cardOutput').className = 'flex flex-col border rounded-xl overflow-hidden card-dark border transition-colors shadow-lg';
+                document.getElementById('headerInput').className = 'px-4 py-3 border-b flex items-center justify-between bg-gray-800 border-gray-700 transition-colors';
+                document.getElementById('headerOutput').className = 'px-4 py-3 border-b flex items-center justify-between bg-gray-800 border-gray-700 transition-colors';
+                sun.classList.remove('hidden');
+                moon.classList.add('hidden');
+            } else {
+                document.documentElement.classList.remove('dark');
+                body.className = 'bg-theme-light min-h-screen p-4 md:p-8 flex flex-col items-center';
+                els.src.className = 'w-full h-full min-h-[400px] p-4 rounded-lg resize-none font-mono text-sm border focus:border-primary input-light';
+                els.out.className = 'w-full h-full min-h-[400px] p-4 rounded-lg resize-none font-mono text-sm border opacity-90 input-light';
+                document.getElementById('cardInput').className = 'flex flex-col border rounded-xl overflow-hidden card-light border transition-colors shadow-lg';
+                document.getElementById('cardOutput').className = 'flex flex-col border rounded-xl overflow-hidden card-light border transition-colors shadow-lg';
+                document.getElementById('headerInput').className = 'px-4 py-3 border-b flex items-center justify-between bg-gray-50 border-gray-200 transition-colors';
+                document.getElementById('headerOutput').className = 'px-4 py-3 border-b flex items-center justify-between bg-gray-50 border-gray-200 transition-colors';
+                sun.classList.add('hidden');
+                moon.classList.remove('hidden');
+            }
+            // 重新觸發以更新按鈕顏色
+            setMode(state.mode);
+        }
+
+        function toggleTheme() {
+            state.theme = state.theme === 'dark' ? 'light' : 'dark';
+            applyTheme();
+        }
+
+        function updateLang() {
+            const t = i18n[state.lang];
+            document.getElementById('ui-title').innerText = t.title;
+            document.getElementById('ui-subtitle').innerText = t.subtitle;
+            document.getElementById('ui-label-input').innerText = t.labelIn;
+            document.getElementById('ui-label-output').innerText = t.labelOut;
+            document.getElementById('ui-btn-clear').innerText = t.btnClear;
+            els.uiCopyText.innerText = t.btnCopy;
+            document.getElementById('ui-empty-warn').innerText = t.emptyWarn;
+            
+            els.src.placeholder = t.placeholderIn;
+            els.btnHtml.innerText = state.lang === 'zh' ? 'HTML 模式' : 'HTML Mode';
+            els.btnJs.innerText = state.lang === 'zh' ? 'JS 模式' : 'JS Mode';
+        }
+
+        function toggleLang() {
+            state.lang = state.lang === 'zh' ? 'en' : 'zh';
+            updateLang();
+        }
+
+        // 初始化
+        applyTheme();
+        updateLang();
     </script>
 </body>
 </html>
